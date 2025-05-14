@@ -4,9 +4,9 @@ import joblib
 from sklearn.preprocessing import LabelEncoder
 
 # Load models
-svm_model = joblib.load('svm_model.pkl')
-knn_model = joblib.load('knn_model.pkl')
-xgb_model = joblib.load('xgb_model.pkl')
+svm_model = joblib.load('models/svm_model.pkl')
+knn_model = joblib.load('models/knn_model.pkl')
+xgb_model = joblib.load('models/xgb_model.pkl')
 
 # Load label encoder for target
 le_target = LabelEncoder()
