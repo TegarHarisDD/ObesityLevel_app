@@ -4,12 +4,12 @@ import pandas as pd
 import numpy as np
 
 # Load saved preprocessing objects and models
-encoders = joblib.load('label_encoders.pkl')
-scaler = joblib.load('minmax_scaler.pkl')
-target_encoder = joblib.load('target_encoder.pkl')
-svm_model = joblib.load('svm_model.pkl')
-knn_model = joblib.load('knn_model.pkl')
-xgb_model = joblib.load('xgb_model.pkl')
+encoders = joblib.load('models/label_encoders.pkl')
+scaler = joblib.load('models/minmax_scaler.pkl')
+target_encoder = joblib.load('models/target_encoder.pkl')
+svm_model = joblib.load('models/svm_model.pkl')
+knn_model = joblib.load('models/knn_model.pkl')
+xgb_model = joblib.load('models/xgb_model.pkl')
 
 # Feature order (must match training data)
 features = [
