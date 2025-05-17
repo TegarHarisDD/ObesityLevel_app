@@ -1,71 +1,74 @@
 import streamlit as st
-import numpy as np
 import joblib
-from sklearn.preprocessing import LabelEncoder
+import pandas as pd
+import numpy as np
 
-# Load models
-svm_model = joblib.load('models/svm_model.pkl')
-knn_model = joblib.load('models/knn_model.pkl')
-xgb_model = joblib.load('models/xgb_model.pkl')
+# Load saved preprocessing objects and models
+encoders = joblib.load('label_encoders.pkl')
+scaler = joblib.load('minmax_scaler.pkl')
+target_encoder = joblib.load('target_encoder.pkl')
+svm_model = joblib.load('svm_model.pkl')
+knn_model = joblib.load('knn_model.pkl')
+xgb_model = joblib.load('xgb_model.pkl')
 
-# Load label encoder for target
-le_target = LabelEncoder()
-le_target.classes_ = np.load('classes.npy', allow_pickle=True)  # Save this during training
-
-# Feature order (must match training)
-feature_names = [
-    'Gender', 'Age', 'Height', 'Weight', 'family_history_with_overweight',
-    'FAVC', 'FCVC', 'NCP', 'CAEC', 'SMOKE', 'CH2O', 'SCC', 'FAF', 'TUE', 'CALC', 'MTRANS'
+# Feature order (must match training data)
+features = [
+    'Age', 'Gender', 'Height', 'Weight', 'CALC', 'FAVC', 'FCVC', 'NCP',
+    'SCC', 'SMOKE', 'CH2O', 'family_history_with_overweight', 'FAF', 'TUE',
+    'CAEC', 'MTRANS'
 ]
 
-# Helper for categorical encoding (should match training encoding)
-def encode_input(input_dict):
-    # Map categorical values to integers as in training
-    cat_maps = {
-        'Gender': {'Female': 0, 'Male': 1},
-        'family_history_with_overweight': {'no': 0, 'yes': 1},
-        'FAVC': {'no': 0, 'yes': 1},
-        'CAEC': {'no': 0, 'Sometimes': 1, 'Frequently': 2, 'Always': 3},
-        'SMOKE': {'no': 0, 'yes': 1},
-        'SCC': {'no': 0, 'yes': 1},
-        'CALC': {'no': 0, 'Sometimes': 1, 'Frequently': 2, 'Always': 3},
-        'MTRANS': {'Automobile': 0, 'Motorbike': 1, 'Bike': 2, 'Public_Transportation': 3, 'Walking': 4}
-    }
-    encoded = []
-    for col in feature_names:
-        if col in cat_maps:
-            encoded.append(cat_maps[col][input_dict[col]])
-        else:
-            encoded.append(float(input_dict[col]))
-    return np.array(encoded).reshape(1, -1)
+st.title('Obesity Level Prediction')
+st.write('Input the features below to predict obesity level using SVM, KNN, and XGBoost.')
 
-st.title("Obesity Classification Prediction")
+# Input form
+with st.form('input_form'):
+    inputs = {}
+    col1, col2 = st.columns(2)
+    
+    # Numerical Inputs
+    with col1:
+        inputs['Age'] = st.number_input('Age (years)', min_value=0.0, max_value=100.0, value=25.0)
+        inputs['Height'] = st.number_input('Height (meters)', min_value=0.0, max_value=2.5, value=1.70)
+        inputs['Weight'] = st.number_input('Weight (kg)', min_value=0.0, max_value=300.0, value=70.0)
+        inputs['FCVC'] = st.number_input('FCVC (frequency)', min_value=0.0, max_value=3.0, value=2.0)
+        inputs['NCP'] = st.number_input('NCP (meals)', min_value=0.0, max_value=4.0, value=3.0)
+        inputs['CH2O'] = st.number_input('CH2O (liters)', min_value=0.0, max_value=3.0, value=2.0)
+        inputs['FAF'] = st.number_input('FAF (activity)', min_value=0.0, max_value=3.0, value=1.0)
+        inputs['TUE'] = st.number_input('TUE (hours)', min_value=0.0, max_value=2.0, value=1.0)
+    
+    # Categorical Inputs
+    with col2:
+        inputs['Gender'] = st.selectbox('Gender', encoders['Gender'].classes_)
+        inputs['CALC'] = st.selectbox('CALC', encoders['CALC'].classes_)
+        inputs['FAVC'] = st.selectbox('FAVC', encoders['FAVC'].classes_)
+        inputs['SCC'] = st.selectbox('SCC', encoders['SCC'].classes_)
+        inputs['SMOKE'] = st.selectbox('SMOKE', encoders['SMOKE'].classes_)
+        inputs['family_history_with_overweight'] = st.selectbox('Family History', encoders['family_history_with_overweight'].classes_)
+        inputs['CAEC'] = st.selectbox('CAEC', encoders['CAEC'].classes_)
+        inputs['MTRANS'] = st.selectbox('MTRANS', encoders['MTRANS'].classes_)
+    
+    submitted = st.form_submit_button('Predict')
 
-# Input fields
-input_data = {}
-input_data['Gender'] = st.selectbox('Gender', ['Female', 'Male'])
-input_data['Age'] = st.number_input('Age', min_value=1, max_value=100, value=25)
-input_data['Height'] = st.number_input('Height (in meters)', min_value=1.0, max_value=2.5, value=1.7, step=0.01)
-input_data['Weight'] = st.number_input('Weight (in kg)', min_value=10.0, max_value=200.0, value=70.0, step=0.1)
-input_data['family_history_with_overweight'] = st.selectbox('Family History with Overweight', ['no', 'yes'])
-input_data['FAVC'] = st.selectbox('Frequent Consumption of High Caloric Food (FAVC)', ['no', 'yes'])
-input_data['FCVC'] = st.slider('Frequency of Vegetable Consumption (FCVC)', 1.0, 3.0, 2.0, 0.1)
-input_data['NCP'] = st.slider('Number of Main Meals (NCP)', 1.0, 4.0, 3.0, 0.1)
-input_data['CAEC'] = st.selectbox('Consumption of Food Between Meals (CAEC)', ['no', 'Sometimes', 'Frequently', 'Always'])
-input_data['SMOKE'] = st.selectbox('Do you smoke?', ['no', 'yes'])
-input_data['CH2O'] = st.slider('Daily Water Intake (CH2O)', 1.0, 3.0, 2.0, 0.1)
-input_data['SCC'] = st.selectbox('Calories Consumption Monitoring (SCC)', ['no', 'yes'])
-input_data['FAF'] = st.slider('Physical Activity Frequency (FAF)', 0.0, 3.0, 1.0, 0.1)
-input_data['TUE'] = st.slider('Time using Technology Devices (TUE)', 0.0, 2.0, 1.0, 0.1)
-input_data['CALC'] = st.selectbox('Alcohol Consumption (CALC)', ['no', 'Sometimes', 'Frequently', 'Always'])
-input_data['MTRANS'] = st.selectbox('Transportation used', ['Automobile', 'Motorbike', 'Bike', 'Public_Transportation', 'Walking'])
-
-if st.button('Predict'):
-    X_input = encode_input(input_data)
-    pred_svm = le_target.inverse_transform(svm_model.predict(X_input))[0]
-    pred_knn = le_target.inverse_transform(knn_model.predict(X_input))[0]
-    pred_xgb = le_target.inverse_transform(xgb_model.predict(X_input))[0]
-
-    st.success(f"SVM Prediction: {pred_svm}")
-    st.success(f"KNN Prediction: {pred_knn}")
-    st.success(f"XGBoost Prediction: {pred_xgb}")
+if submitted:
+    # Create DataFrame
+    input_df = pd.DataFrame([inputs], columns=features)
+    
+    # Encode categorical features
+    for col in encoders:
+        input_df[col] = encoders[col].transform(input_df[col])
+    
+    # Scale numerical features
+    numerical_cols = ['Age', 'Height', 'Weight', 'FCVC', 'NCP', 'CH2O', 'FAF', 'TUE']
+    input_df[numerical_cols] = scaler.transform(input_df[numerical_cols])
+    
+    # Predict
+    svm_pred = target_encoder.inverse_transform(svm_model.predict(input_df))[0]
+    knn_pred = target_encoder.inverse_transform(knn_model.predict(input_df))[0]
+    xgb_pred = target_encoder.inverse_transform(xgb_model.predict(input_df))[0]
+    
+    # Display results
+    st.subheader('Predictions')
+    st.write(f'SVM Prediction: **{svm_pred}**')
+    st.write(f'KNN Prediction: **{knn_pred}**')
+    st.write(f'XGBoost Prediction: **{xgb_pred}**')
